@@ -239,6 +239,7 @@ optimize.ccSVM <- function(X,ytr,L,CRange,LambdaRange,kfold=2){ #optimize ccSVM 
   } else {
     lambda = LambdaRange[1]
   }
+  print(lambda)
   print('finished')
   
   return(c(lambda,C))
