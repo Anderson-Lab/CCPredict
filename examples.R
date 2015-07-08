@@ -1,7 +1,3 @@
-library(doParallel)
-library(foreach)
-cl<-makeCluster(8)
-registerDoParallel(cl)
 
 X <- read.csv(system.file("extdata", "X.csv", package="CCPredict"),header=FALSE)
 X <- t(X)

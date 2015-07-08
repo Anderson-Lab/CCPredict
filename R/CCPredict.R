@@ -3,6 +3,8 @@ library(kernlab)
 library(AUC)
 #library(modeest)
 #library(permute)
+library(doParallel)
+library(foreach)
 
 #' blah blah blah
 #'
