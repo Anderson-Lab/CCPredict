@@ -56,7 +56,7 @@ optimize.cckopls <- function(X,ytr,L,noxRange,LambdaRange,kfold){ #optimize ccko
       kcauc[i,j] <- auc(roc(modelOrgPred$Yhat[,2],factor(ytr[test,2])))
     }
   }
-  
+
   a <- max(rowMeans(kcauc))
   b <- which(rowMeans(kcauc) == a)
   
@@ -177,9 +177,10 @@ optimize.ccSVM <- function(X,ytr,L,CRange,LambdaRange,kfold=2){ #optimize ccSVM 
       test <- test.inxs[[j]]
       K <- as.kernelMatrix(crossprod(t(X[-test,])))
       tryCatch({
-        ksvm.obj <- ksvm(K,ytr[-test],C=C,kernel='matrix',prob.model=T)#,type='nu-svc')
+        ksvm.obj <- ksvm(K,ytr[-test],C=C,kernel='matrix')#,prob.model=T)#,type='nu-svc')
         Ktest <- as.kernelMatrix(crossprod(t(X[test,]),t(X[SVindex(ksvm.obj), ])))  
-        predictions <- predict(ksvm.obj,Ktest,type='probabilities')[,2]
+        predictions <- predict(ksvm.obj,Ktest,type='decision')
+        #print(predictions)
         labels = ytr[test]
         kcauc.values[j] = auc(roc(predictions,labels))
       },
@@ -188,6 +189,7 @@ optimize.ccSVM <- function(X,ytr,L,CRange,LambdaRange,kfold=2){ #optimize ccSVM 
     }
     return(kcauc.values)
   }
+  print(kcauc)
   
   b <- which.max(rowMeans(kcauc))
   
@@ -220,9 +222,9 @@ optimize.ccSVM <- function(X,ytr,L,CRange,LambdaRange,kfold=2){ #optimize ccSVM 
       K.new <- rescaled[[2]]
       l <- rescaled[[3]]
       tryCatch({
-        ksvm.obj <- ksvm(K.new[-test,-test],ytr[-test],C=C,kernel='matrix',prob.model=T)#,type='nu-svc')
+        ksvm.obj <- ksvm(K.new[-test,-test],ytr[-test],C=C,kernel='matrix')#,prob.model=T)#,type='nu-svc')
         Ktest.new <- as.kernelMatrix(crossprod(t(X.new[test,]),t(X.new[SVindex(ksvm.obj), ])))  
-        predictions <- predict(ksvm.obj,Ktest.new,type='probabilities')[,2]
+        predictions <- predict(ksvm.obj,Ktest.new,type='decision')
         labels <- ytr[test]
         kcauc.values[j] = auc(roc(predictions,labels))
       },
