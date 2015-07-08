@@ -1,8 +1,8 @@
 library(kopls)
 library(kernlab)
 library(AUC)
-library(modeest)
-library(permute)
+#library(modeest)
+#library(permute)
 
 #' blah blah blah
 #'
@@ -15,7 +15,15 @@ library(permute)
 #' @return blah blah
 #'
 #' @examples
-#' a=1
+#' X <- read.csv(system.file("extdata", "X.csv", package="CCPredict"),header=FALSE)
+#' X <- t(X)
+#' X = scale(X,center=T,scale=T) # Scale the X data so it has a mean of 0 and a stdev of 1. Pretty standard
+#' y <- read.csv(system.file("extdata", "y.csv", package="CCPredict"),header=FALSE)
+#' L <- read.csv(system.file("extdata", "L.csv", package="CCPredict"),header=FALSE)
+#' y <- as.matrix(y)
+#' y <- factor(y[,1])
+#' L <- as.matrix(L)
+#' optimize.cckopls(X,y,L,c(0:3),c(1e-8,1e-4,1e-2,1,1e+2,1e+4,1e+8),5)
 #'
 #' @export
 #'
@@ -130,13 +138,19 @@ optimize.cckopls <- function(X,ytr,L,noxRange,LambdaRange,kfold){ #optimize ccko
 #' @return blah blah
 #'
 #' @examples
-#' a=1
+#' X <- read.csv(system.file("extdata", "X.csv", package="CCPredict"),header=FALSE)
+#' X <- t(X)
+#' X = scale(X,center=T,scale=T) # Scale the X data so it has a mean of 0 and a stdev of 1. Pretty standard
+#' y <- read.csv(system.file("extdata", "y.csv", package="CCPredict"),header=FALSE)
+#' L <- read.csv(system.file("extdata", "L.csv", package="CCPredict"),header=FALSE)
+#' y <- as.matrix(y)
+#' y <- factor(y[,1])
+#' L <- as.matrix(L)
+#' optimize.ccSVM(X,y,L,c(2^-8,2^-4,2^-2,2^0,2^2,2^4,2^8),c(1e-8,1e-4,1e-2,1,1e+2,1e+4,1e+8))
 #'
 #' @export
 #'
-optimize.ccSVM <- function(X,ytr,L,CRange,LambdaRange,kfold=2){ #optimize ccSVM params
-  library(kernlab)
-  library(AUC)
+optimize.ccSVM <- function(X,ytr,L,CRange,LambdaRange,kfold=5){ #optimize ccSVM params
   
   kcauc <- matrix(0,nrow=length(CRange),ncol=kfold) #optimize C
   
@@ -147,31 +161,30 @@ optimize.ccSVM <- function(X,ytr,L,CRange,LambdaRange,kfold=2){ #optimize ccSVM 
     end <- min(nrow(X),size + size*(i-1))
     test.inxs[[i]] <- start:end
   }
-  library(AUC)
   print('optimizing C...')
-  for (i in 1:length(CRange)){
-    c <- CRange[i]
+  foreach(i=1:length(CRange),.packages=c('kernlab','AUC','CCPredict')) %dopar% {
+    C <- CRange[i]
     #print(c)
     for (j in 1:kfold){
       test <- test.inxs[[j]]
       K <- as.kernelMatrix(crossprod(t(X[-test,])))
-      ok = F
-      while(ok == F) {
-        tryCatch({
-          ksvm.obj <- ksvm(K,ytr[-test],C=c,kernel='matrix',prob.model=T,type='nu-svc')
+      #ok = F
+      #while(ok == F) {
+        #tryCatch({
+          ksvm.obj <- ksvm(K,ytr[-test],C=C,kernel='matrix',prob.model=T)#,type='nu-svc')
           Ktest <- as.kernelMatrix(crossprod(t(X[test,]),t(X[SVindex(ksvm.obj), ])))  
           predictions <- predict(ksvm.obj,Ktest,type='probabilities')[,2]
           labels = ytr[test]
           kcauc[i,j] <- auc(roc(predictions,labels))
-          ok = T
-        },
-        error = function(e) {
-          print('retrying ksvm')
-          print('param')
-          print(e)
-          ok = F
-        })
-      }
+        #  ok = T
+        #},
+        #error = function(e) {
+        #  print('retrying ksvm')
+        #  print('param')
+        #  print(e)
+        #  ok = F
+        #})
+      #}
     }
   }
   
@@ -189,10 +202,11 @@ optimize.ccSVM <- function(X,ytr,L,CRange,LambdaRange,kfold=2){ #optimize ccSVM 
     start <- 1 + size*(i-1)
     end <- min(nrow(X),size + size*(i-1))
     test.inxs[[i]] <- start:end
-  }
+  } 
   
   print('optimizing lambda...')
-  for (i in 1:length(LambdaRange)){
+  foreach(i=1:length(LambdaRange),.packages=c('kernlab','AUC','CCPredict')) %dopar% { 
+  #for (i in 1:length(LambdaRange)){
     lam <- LambdaRange[i]
     #print(lam)
     for (j in 1:kfold){
@@ -200,24 +214,24 @@ optimize.ccSVM <- function(X,ytr,L,CRange,LambdaRange,kfold=2){ #optimize ccSVM 
       rescaled <- Rescaling(X,L,lam)
       X.new <- rescaled[[1]]
       K.new <- rescaled[[2]]
-      #l <- rescaled[[3]]
-      ok <- F
-      while(ok == F) {
-        tryCatch({
-          ksvm.obj <- ksvm(K.new[-test,-test],ytr[-test],C=c,kernel='matrix',prob.model=T)#,type='nu-svc')
+      l <- rescaled[[3]]
+      #ok <- F
+      #while(ok == F) {
+      #  tryCatch({
+          ksvm.obj <- ksvm(K.new[-test,-test],ytr[-test],C=C,kernel='matrix',prob.model=T)#,type='nu-svc')
           Ktest.new <- as.kernelMatrix(crossprod(t(X.new[test,]),t(X.new[SVindex(ksvm.obj), ])))  
           predictions <- predict(ksvm.obj,Ktest.new,type='probabilities')[,2]
           labels <- ytr[test]
           kcauc[i,j] <- auc(roc(predictions,labels))
-          ok = T
-        },
-        error = function(e) {
-          print('retrying ksvm')
-          print('lambda')
-          print(e)
-          ok = F
-        })
-      }
+      #    ok = T
+      #  },
+      #  error = function(e) {
+      #    print('retrying ksvm')
+      #    print('lambda')
+      #    print(e)
+      #    ok = F
+      #  })
+      #}
     }   
   }
   
@@ -281,4 +295,45 @@ optimize.ccSVM <- function(X,ytr,L,CRange,LambdaRange,kfold=2){ #optimize ccSVM 
 #   C <- CRange[z]
 #   
   
+}
+
+
+#' Kernel matrix rescaling
+#'
+#' Uses an optimized lambda to rescale K (the kernel matrix) by way of X
+#' (the data set)
+#'
+#' @param X - input data matrix
+#' @param L - side information matrix
+#' @param lambda - optimized lambda value (see Li et al.)
+#'
+#' @return the rescaled matrices X and K
+#'
+#' @export
+Rescaling <- function(X,L,lambda){
+  
+  #instead of lambda, nox
+  
+  n <- dim(X)[1]
+  m <- dim(X)[2]
+  
+  H <- diag(n,n)-1/n*matrix(1,n,n)
+  L <- H%*%L%*%H/((m-1)^2)
+  
+  l <- c()
+  if (lambda > 0){
+    for (i in 1:m){
+      xi <- X[,i]
+      l[i] <- sqrt(lambda*t(xi)%*%L%*%xi+1)
+      X[,i] <- xi/l[i]
+    }
+    l = t(l)
+  } else{
+    l = matrix(1,m,1)
+  }
+  
+  X.new = X
+  K.new = X.new%*%t(X.new)
+  
+  return (list(X.new,K.new,l))
 }
