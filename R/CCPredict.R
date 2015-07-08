@@ -173,24 +173,24 @@ optimize.ccSVM <- function(X,ytr,L,CRange,LambdaRange,kfold=2){ #optimize ccSVM 
     #results = foreach(j=1:kfold,.packages=c('kernlab','AUC','CCPredict')) %dopar% {
     kcauc.values = c()
     for (j in 1:kfold){
+      kcauc.values[j] = 0
       test <- test.inxs[[j]]
       K <- as.kernelMatrix(crossprod(t(X[-test,])))
       tryCatch({
-        ksvm.obj <- ksvm(K,ytr[-test],C=C,kernel='matrix',prob.model=T,type='nu-svc')
+        ksvm.obj <- ksvm(K,ytr[-test],C=C,kernel='matrix',prob.model=T)#,type='nu-svc')
         Ktest <- as.kernelMatrix(crossprod(t(X[test,]),t(X[SVindex(ksvm.obj), ])))  
         predictions <- predict(ksvm.obj,Ktest,type='probabilities')[,2]
         labels = ytr[test]
         kcauc.values[j] = auc(roc(predictions,labels))
       },
       error = function(e) {
-        kcauc.values[j] = 0
       })
     }
     return(kcauc.values)
   }
   
   a <- max(rowMeans(kcauc))
-  b <- which(rowMeans(kcauc) == a)
+  b <- which.max(rowMeans(kcauc) == a)
   
   C <- CRange[b[1]]
   print(C)
@@ -214,20 +214,20 @@ optimize.ccSVM <- function(X,ytr,L,CRange,LambdaRange,kfold=2){ #optimize ccSVM 
     #print(lam)
     kcauc.values = c()
     for (j in 1:kfold){
+      kcauc.values[j] = 0
       test <- test.inxs[[j]]
       rescaled <- Rescaling(X,L,lam)
       X.new <- rescaled[[1]]
       K.new <- rescaled[[2]]
       l <- rescaled[[3]]
       tryCatch({
-        ksvm.obj <- ksvm(K.new[-test,-test],ytr[-test],C=C,kernel='matrix',prob.model=T,type='nu-svc')
+        ksvm.obj <- ksvm(K.new[-test,-test],ytr[-test],C=C,kernel='matrix',prob.model=T)#,type='nu-svc')
         Ktest.new <- as.kernelMatrix(crossprod(t(X.new[test,]),t(X.new[SVindex(ksvm.obj), ])))  
         predictions <- predict(ksvm.obj,Ktest.new,type='probabilities')[,2]
         labels <- ytr[test]
         kcauc.values[j] = auc(roc(predictions,labels))
       },
       error = function(e) {
-        kcauc.values[j] = 0
       })
     }
     return(kcauc.values)
