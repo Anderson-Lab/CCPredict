@@ -189,8 +189,7 @@ optimize.ccSVM <- function(X,ytr,L,CRange,LambdaRange,kfold=2){ #optimize ccSVM 
     return(kcauc.values)
   }
   
-  a <- max(rowMeans(kcauc))
-  b <- which.max(rowMeans(kcauc) == a)
+  b <- which.max(rowMeans(kcauc))
   
   C <- CRange[b[1]]
   print(C)
@@ -233,8 +232,9 @@ optimize.ccSVM <- function(X,ytr,L,CRange,LambdaRange,kfold=2){ #optimize ccSVM 
     return(kcauc.values)
   }
   
-  a <- max(rowMeans(kcauc))
-  b <- which(rowMeans(kcauc) == a)
+  #a <- max(rowMeans(kcauc))
+  #b <- which(rowMeans(kcauc) == a)
+  b <- which.max(rowMeans(kcauc))
   
   lambda <- LambdaRange[b[1]]
   print('finished')
