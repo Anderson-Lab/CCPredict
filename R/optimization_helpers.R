@@ -1,4 +1,9 @@
-#optimizes nox and lambda for cckopls, and lambda and C for ccSVM, other parameters to be added as methods are added
+library(kopls)
+library(kernlab)
+library(AUC)
+library(modeest)
+library(permute)
+
 #' blah blah blah
 #'
 #' @param X blah blah
@@ -10,7 +15,7 @@
 #' @return blah blah
 #'
 #' @examples
-#' a='blah'
+#' a=1
 #'
 #' @export
 #'
@@ -119,13 +124,13 @@ optimize.cckopls <- function(X,ytr,L,noxRange,LambdaRange,kfold){ #optimize ccko
 #' @param X blah blah
 #' @param ytr blah blah
 #' @param L blah blah
-#' @param noxRange blah blah
+#' @param CRange blah blah
 #' @param LambdaRange blah blah
 #' @param kfold blah blah
 #' @return blah blah
 #'
 #' @examples
-#' a='blah'
+#' a=1
 #'
 #' @export
 #'
