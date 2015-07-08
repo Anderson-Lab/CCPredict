@@ -95,35 +95,35 @@ optimize.cckopls <- function(X,ytr,L,noxRange,LambdaRange,kfold){ #optimize ccko
   
   return(c(lambda,nox))
   
-#   c = 1
-#   iz = matrix(0,nrow=length(LambdaRange)*length(noxRange),ncol=2)
-#   for (z in 1:length(noxRange)) {
-#     for (i in 1:length(LambdaRange)){
-#       lambda <- LambdaRange[i]
-#       kcauc_total = 0
-#       for (j in 1:kfold){
-#         rescaled <- Rescaling(X,L,lambda)
-#         X.new <- rescaled[[1]]
-#         K.new <- rescaled[[2]]
-#         test <- test.inxs[[j]]
-#         modelOrg <- koplsModel(K.new[-test,-test],ytr[-test,],1,noxRange[z],'mc','mc')
-#         modelOrgPred<-koplsPredict(K.new[test,-test],K.new[test,test],K.new[-test,-test],modelOrg,rescaleY=TRUE)
-#         kcauc_total <- kcauc_total + auc(roc(modelOrgPred$Yhat[,2],factor(ytr[test,2])))
-#         #print(auc(roc(modelOrgPred$Yhat[,2],factor(ytr[test,2]))))
-#       }
-#       kcauc_total = kcauc_total/kfold
-#       kcauc[c] = kcauc_total
-#       iz[c,1] = i
-#       iz[c,2] = z
-#       c = c + 1
-#     }
-#   }
-#   
-#   ix = which.max(kcauc)    
-#   i = iz[ix,1]
-#   z = iz[ix,2]
-#   lambda <- LambdaRange[i]
-#   nox <- noxRange[z]
+  #   c = 1
+  #   iz = matrix(0,nrow=length(LambdaRange)*length(noxRange),ncol=2)
+  #   for (z in 1:length(noxRange)) {
+  #     for (i in 1:length(LambdaRange)){
+  #       lambda <- LambdaRange[i]
+  #       kcauc_total = 0
+  #       for (j in 1:kfold){
+  #         rescaled <- Rescaling(X,L,lambda)
+  #         X.new <- rescaled[[1]]
+  #         K.new <- rescaled[[2]]
+  #         test <- test.inxs[[j]]
+  #         modelOrg <- koplsModel(K.new[-test,-test],ytr[-test,],1,noxRange[z],'mc','mc')
+  #         modelOrgPred<-koplsPredict(K.new[test,-test],K.new[test,test],K.new[-test,-test],modelOrg,rescaleY=TRUE)
+  #         kcauc_total <- kcauc_total + auc(roc(modelOrgPred$Yhat[,2],factor(ytr[test,2])))
+  #         #print(auc(roc(modelOrgPred$Yhat[,2],factor(ytr[test,2]))))
+  #       }
+  #       kcauc_total = kcauc_total/kfold
+  #       kcauc[c] = kcauc_total
+  #       iz[c,1] = i
+  #       iz[c,2] = z
+  #       c = c + 1
+  #     }
+  #   }
+  #   
+  #   ix = which.max(kcauc)    
+  #   i = iz[ix,1]
+  #   z = iz[ix,2]
+  #   lambda <- LambdaRange[i]
+  #   nox <- noxRange[z]
   
 } #end of cckopls opt
 
@@ -150,9 +150,9 @@ optimize.cckopls <- function(X,ytr,L,noxRange,LambdaRange,kfold){ #optimize ccko
 #'
 #' @export
 #'
-optimize.ccSVM <- function(X,ytr,L,CRange,LambdaRange,kfold=5){ #optimize ccSVM params
+optimize.ccSVM <- function(X,ytr,L,CRange,LambdaRange,kfold=2){ #optimize ccSVM params
   
-  kcauc <- matrix(0,nrow=length(CRange),ncol=kfold) #optimize C
+  #kcauc <- matrix(0,nrow=length(CRange),ncol=kfold) #optimize C
   
   size <- round(nrow(X)/kfold)
   test.inxs <- list()
@@ -162,39 +162,37 @@ optimize.ccSVM <- function(X,ytr,L,CRange,LambdaRange,kfold=5){ #optimize ccSVM 
     test.inxs[[i]] <- start:end
   }
   print('optimizing C...')
-  foreach(i=1:length(CRange),.packages=c('kernlab','AUC','CCPredict')) %dopar% {
+  kcauc = foreach(i=1:length(CRange),.packages=c('kernlab','AUC','CCPredict'),.combine=rbind) %dopar% {
+  #for (i in 1:length(CRange)) {
     C <- CRange[i]
     #print(c)
+    #results = foreach(j=1:kfold,.packages=c('kernlab','AUC','CCPredict')) %dopar% {
+    kcauc.values = c()
     for (j in 1:kfold){
       test <- test.inxs[[j]]
       K <- as.kernelMatrix(crossprod(t(X[-test,])))
-      #ok = F
-      #while(ok == F) {
-        #tryCatch({
-          ksvm.obj <- ksvm(K,ytr[-test],C=C,kernel='matrix',prob.model=T)#,type='nu-svc')
-          Ktest <- as.kernelMatrix(crossprod(t(X[test,]),t(X[SVindex(ksvm.obj), ])))  
-          predictions <- predict(ksvm.obj,Ktest,type='probabilities')[,2]
-          labels = ytr[test]
-          kcauc[i,j] <- auc(roc(predictions,labels))
-        #  ok = T
-        #},
-        #error = function(e) {
-        #  print('retrying ksvm')
-        #  print('param')
-        #  print(e)
-        #  ok = F
-        #})
-      #}
+      tryCatch({
+        ksvm.obj <- ksvm(K,ytr[-test],C=C,kernel='matrix',prob.model=T,type='nu-svc')
+        Ktest <- as.kernelMatrix(crossprod(t(X[test,]),t(X[SVindex(ksvm.obj), ])))  
+        predictions <- predict(ksvm.obj,Ktest,type='probabilities')[,2]
+        labels = ytr[test]
+        kcauc.values[j] = auc(roc(predictions,labels))
+      },
+      error = function(e) {
+        kcauc.values[j] = 0
+      })
     }
+    return(kcauc.values)
   }
   
   a <- max(rowMeans(kcauc))
   b <- which(rowMeans(kcauc) == a)
   
   C <- CRange[b[1]]
+  print(C)
   print('finished')
   
-  kcauc <- matrix(0,nrow=length(LambdaRange),ncol=kfold) #optimize lambda
+  #kcauc <- matrix(0,nrow=length(LambdaRange),ncol=kfold) #optimize lambda
   
   size <- round(nrow(X)/kfold)
   test.inxs <- list()
@@ -205,34 +203,30 @@ optimize.ccSVM <- function(X,ytr,L,CRange,LambdaRange,kfold=5){ #optimize ccSVM 
   } 
   
   print('optimizing lambda...')
-  foreach(i=1:length(LambdaRange),.packages=c('kernlab','AUC','CCPredict')) %dopar% { 
-  #for (i in 1:length(LambdaRange)){
+  #foreach(i=1:length(LambdaRange),.packages=c('kernlab','AUC','CCPredict')) %dopar% { 
+  kcauc = foreach(i=1:length(LambdaRange),.packages=c('kernlab','AUC','CCPredict'),.combine=rbind) %dopar% {
+    #for (i in 1:length(LambdaRange)){
     lam <- LambdaRange[i]
     #print(lam)
+    kcauc.values = c()
     for (j in 1:kfold){
       test <- test.inxs[[j]]
       rescaled <- Rescaling(X,L,lam)
       X.new <- rescaled[[1]]
       K.new <- rescaled[[2]]
       l <- rescaled[[3]]
-      #ok <- F
-      #while(ok == F) {
-      #  tryCatch({
-          ksvm.obj <- ksvm(K.new[-test,-test],ytr[-test],C=C,kernel='matrix',prob.model=T)#,type='nu-svc')
-          Ktest.new <- as.kernelMatrix(crossprod(t(X.new[test,]),t(X.new[SVindex(ksvm.obj), ])))  
-          predictions <- predict(ksvm.obj,Ktest.new,type='probabilities')[,2]
-          labels <- ytr[test]
-          kcauc[i,j] <- auc(roc(predictions,labels))
-      #    ok = T
-      #  },
-      #  error = function(e) {
-      #    print('retrying ksvm')
-      #    print('lambda')
-      #    print(e)
-      #    ok = F
-      #  })
-      #}
-    }   
+      tryCatch({
+        ksvm.obj <- ksvm(K.new[-test,-test],ytr[-test],C=C,kernel='matrix',prob.model=T,type='nu-svc')
+        Ktest.new <- as.kernelMatrix(crossprod(t(X.new[test,]),t(X.new[SVindex(ksvm.obj), ])))  
+        predictions <- predict(ksvm.obj,Ktest.new,type='probabilities')[,2]
+        labels <- ytr[test]
+        kcauc.values[j] = auc(roc(predictions,labels))
+      },
+      error = function(e) {
+        kcauc.values[j] = 0
+      })
+    }
+    return(kcauc.values)
   }
   
   a <- max(rowMeans(kcauc))
@@ -243,58 +237,7 @@ optimize.ccSVM <- function(X,ytr,L,CRange,LambdaRange,kfold=5){ #optimize ccSVM 
   
   return(c(lambda,C))
   
-#   kcauc <- vector(length=length(LambdaRange)*length(CRange))
-#   size <- round(nrow(X)/kfold)
-#   test.inxs <- list()
-#   for(i in 1:kfold){
-#     start <- 1 + size*(i-1)
-#     end <- min(nrow(X),size + size*(i-1))
-#     test.inxs[[i]] <- start:end
-#   }
-#   
-#   c = 1
-#   iz = matrix(0,nrow=length(LambdaRange)*length(CRange),ncol=2)
-#   for (z in 1:length(CRange)) {
-#     for (i in 1:length(LambdaRange)){
-#       lambda <- LambdaRange[i]
-#       kcauc_total = 0
-#       for (j in 1:kfold){
-#         rescaled <- Rescaling(X,L,lambda)
-#         X.new <- rescaled[[1]]
-#         K.new <- rescaled[[2]]
-#         ok = F
-#         while(ok == F) {
-#           tryCatch({
-#             ksvm.obj <- ksvm(K.new[-test.inxs[[j]],-test.inxs[[j]]],y[-test.inxs[[j]]],C=c,kernel='matrix',prob.model=T,type='nu-svc')
-#             Ktest.new <- as.kernelMatrix(crossprod(t(X.new[test.inxs[[j]],]),t(X.new[SVindex(ksvm.obj), ])))
-#             predictions <- predict(ksvm.obj,Ktest.new,type='probabilities')[,2]
-#             labels = y[test.inxs[[j]]]
-#             kcauc[i,j] <- auc(roc(predictions,labels))
-#             ok = T
-#           },
-#           error = function(e) {
-#             print('retrying ksvm')
-#             print('param')
-#             print(e)
-#             ok = F
-#           })
-#         }
-#       }
-#     }
-#       kcauc_total = kcauc_total/kfold
-#       kcauc[c] = kcauc_total
-#       iz[c,1] = i
-#       iz[c,2] = z
-#       c = c + 1
-#     }
-#   
-#   ix = which.max(kcauc)    
-#   i = iz[ix,1]
-#   z = iz[ix,2]
-#   lambda <- LambdaRange[i]
-#   C <- CRange[z]
-#   
-  
+
 }
 
 

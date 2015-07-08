@@ -12,8 +12,6 @@ y <- as.matrix(y)
 y <- factor(y[,1])
 L <- as.matrix(L)
 ytr=y
-CRange=c(1)
+CRange=c(2^-8,2^-4,2^-2,2^0,2^2,2^4,2^8)
 LambdaRange=c(1e-8,1e-4,1e-2,1,1e+2,1e+4,1e+8)
-kfold=2
-optimize.ccSVM(X,y,L,c(2^-8,2^-4,2^-2,2^0,2^2,2^4,2^8),c(1e-8,1e-4,1e-2,1,1e+2,1e+4,1e+8))
-optimize.ccSVM(X,y,L,c(2^0),c(1e-8,1e-4,1e-2,1,1e+2,1e+4,1e+8))
+optimize.ccSVM(X,y,L,CRange,LambdaRange)
