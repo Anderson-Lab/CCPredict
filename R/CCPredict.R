@@ -151,6 +151,8 @@ optimize.cckopls <- function(X,ytr,L,noxRange,LambdaRange,kfold){ #optimize ccko
 #' @export
 #'
 optimize.ccSVM <- function(X,ytr,L,CRange,LambdaRange,kfold=2){ #optimize ccSVM params
+  cl<-makeCluster(8)
+  registerDoParallel(cl)
   
   #kcauc <- matrix(0,nrow=length(CRange),ncol=kfold) #optimize C
   
