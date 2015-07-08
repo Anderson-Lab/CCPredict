@@ -206,7 +206,7 @@ optimize.ccSVM <- function(X,ytr,L,CRange,LambdaRange,kfold=2){ #optimize ccSVM 
   } 
   
   print('optimizing lambda...')
-  #foreach(i=1:length(LambdaRange),.packages=c('kernlab','AUC','CCPredict')) %dopar% { 
+  if (length(LambdaRange) > 1) {
   kcauc = foreach(i=1:length(LambdaRange),.packages=c('kernlab','AUC','CCPredict'),.combine=rbind) %dopar% {
     #for (i in 1:length(LambdaRange)){
     lam <- LambdaRange[i]
@@ -232,11 +232,11 @@ optimize.ccSVM <- function(X,ytr,L,CRange,LambdaRange,kfold=2){ #optimize ccSVM 
     return(kcauc.values)
   }
   
-  #a <- max(rowMeans(kcauc))
-  #b <- which(rowMeans(kcauc) == a)
-  b <- which.max(rowMeans(kcauc))
-  
-  lambda <- LambdaRange[b[1]]
+    b <- which.max(rowMeans(kcauc))
+    lambda <- LambdaRange[b[1]]
+  } else {
+    lambda = LambdaRange[1]
+  }
   print('finished')
   
   return(c(lambda,C))
