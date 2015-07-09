@@ -15,15 +15,18 @@ library(foreach)
 # 5. What else is missing from the package?
 
 
-#' blah blah blah
+#' Optimize cckOPLS parameters
 #'
-#' @param X blah blah
-#' @param ytr blah blah
-#' @param L blah blah
-#' @param noxRange blah blah
-#' @param LambdaRange blah blah
-#' @param kfold blah blah
-#' @return blah blah
+#' Given a range of nox and lambda values, optimize them by maximizing
+#' the mean AUC (of the ROC) across all folds.
+#'
+#' @param X - Input data matrix (NxD)
+#' @param ytr - Labels (Nx1)
+#' @param L - Side information kernel matrix
+#' @param noxRange - Range over which to optimize nox parameter (kopls)
+#' @param LambdaRange - Range over which to optimize lambda parameter (cc)
+#' @param kfold - Number of folds for CV
+#' @return lambda, nox - optimized lambda and nox values
 #'
 #' @examples
 #' X <- read.csv(system.file("extdata", "X.csv", package="CCPredict"),header=FALSE)
@@ -33,13 +36,8 @@ library(foreach)
 optimize.cckopls <- function(X,ytr,L,noxRange,LambdaRange,kfold){ #optimize cckopls/kopls params
   
   kcauc <- matrix(0, nrow=length(noxRange),ncol=kfold)
-  size <- round(nrow(X)/kfold)
-  test.inxs <- list()
-  for(i in 1:kfold){
-    start <- 1 + size*(i-1)
-    end <- min(nrow(X),size + size*(i-1))
-    test.inxs[[i]] <- start:end
-  }
+  test.inxs <- generate.test.inxs(nrow(X),kfold)
+
   print('optimizing nox...')
   for (i in 1:length(noxRange)){
     n <- noxRange[i]
@@ -65,13 +63,7 @@ optimize.cckopls <- function(X,ytr,L,noxRange,LambdaRange,kfold){ #optimize ccko
   print('finished')
   
   kcauc <- matrix(0, nrow=length(LambdaRange),ncol=kfold)
-  size <- round(nrow(X)/kfold)
-  test.inxs <- list()
-  for(i in 1:kfold){
-    start <- 1 + size*(i-1)
-    end <- min(nrow(X),size + size*(i-1))
-    test.inxs[[i]] <- start:end
-  }
+  test.inxs <- generate.test.inxs(nrow(X),kfold)
   
   print('optimizing lambda...')
   for (i in 1:length(LambdaRange)){
@@ -101,15 +93,15 @@ optimize.cckopls <- function(X,ytr,L,noxRange,LambdaRange,kfold){ #optimize ccko
 
 } #end of cckopls opt
 
-#' blah blah blah
-#'
-#' @param X blah blah
-#' @param ytr blah blah
-#' @param L blah blah
-#' @param CRange blah blah
-#' @param LambdaRange blah blah
-#' @param kfold blah blah
-#' @return blah blah
+#' Optimize ccSVM parameters
+#' 
+#' @param X - Input data matrix (NxD)
+#' @param ytr - Labels (Nx1)
+#' @param L - Side information kernel matrix
+#' @param CRange - Range over which to optimize C parameter (svm)
+#' @param LambdaRange - Range over which to optimize lambda parameter (cc)
+#' @param kfold - Number of folds for CV
+#' @return lambda, C - the optimized lambda and C values
 #'
 #' @examples
 #' X <- read.csv(system.file("extdata", "X.csv", package="CCPredict"),header=FALSE)
@@ -122,13 +114,7 @@ optimize.ccSVM <- function(X,ytr,L,CRange,LambdaRange,kfold=2,cluster.size=8){ #
   
   #kcauc <- matrix(0,nrow=length(CRange),ncol=kfold) #optimize C
   
-  size <- round(nrow(X)/kfold)
-  test.inxs <- list()
-  for(i in 1:kfold){
-    start <- 1 + size*(i-1)
-    end <- min(nrow(X),size + size*(i-1))
-    test.inxs[[i]] <- start:end
-  }
+  test.inxs <- generate.test.inxs(nrow(X),kfold)
   print('optimizing C...')
   kcauc = foreach(i=1:length(CRange),.packages=c('kernlab','AUC','CCPredict'),.combine=rbind) %dopar% {
   #for (i in 1:length(CRange)) {
@@ -149,6 +135,7 @@ optimize.ccSVM <- function(X,ytr,L,CRange,LambdaRange,kfold=2,cluster.size=8){ #
         kcauc.values[j] = auc(roc(predictions,labels))
       },
       error = function(e) {
+          # there were no samples predicted for one of the classes
       })
     }
     return(kcauc.values)
@@ -162,15 +149,8 @@ optimize.ccSVM <- function(X,ytr,L,CRange,LambdaRange,kfold=2,cluster.size=8){ #
   print('finished')
   
   #kcauc <- matrix(0,nrow=length(LambdaRange),ncol=kfold) #optimize lambda
-  
-  size <- round(nrow(X)/kfold)
-  test.inxs <- list()
-  for(i in 1:kfold){
-    start <- 1 + size*(i-1)
-    end <- min(nrow(X),size + size*(i-1))
-    test.inxs[[i]] <- start:end
-  } 
-  
+ 
+  test.inxs <- generate.test.inxs(nrow(X),kfold)
   print('optimizing lambda...')
   if (length(LambdaRange) > 1) {
   kcauc = foreach(i=1:length(LambdaRange),.packages=c('kernlab','AUC','CCPredict'),.combine=rbind) %dopar% {
@@ -253,11 +233,13 @@ rescaling <- function(X,L,lambda){
   return (list(X.new,K.new,l))
 }
 
-#' blah blah blah
+#' Generate Test Indices
 #'
-#' @param n blah blah
-#' @param kfold blah blah
-#' @return blah blah
+#' Generates the test indices for each fold for kfold CV
+#'
+#' @param n - number of samples
+#' @param kfold - number of folds
+#' @return test indices
 #'
 #' @examples
 #' X <- read.csv(system.file("extdata", "X.csv", package="CCPredict"),header=FALSE)
@@ -276,15 +258,15 @@ generate.test.inxs <- function(n,kfold) {
   return(test.inxs)
 }
 
-#' blah blah blah
+#' Predict with ccSVM
 #'
-#' @param X blah blah
-#' @param y blah blah
-#' @param L blah blah
-#' @param test.inxs blah blah
-#' @param lambda blah blah
-#' @param C blah blah
-#' @return blah blah
+#' @param X - Input data matrix (NxD)
+#' @param y - Labels (Nx1)
+#' @param L - Side information kernel matrix
+#' @param test.inxs - test incides for CV
+#' @param lambda - optimized lambda value (cc)
+#' @param C - optimized C value (SVM)
+#' @return ROC curve, labels, predicted labels, and AUC
 #'
 #' @examples
 #' X <- read.csv(system.file("extdata", "X.csv", package="CCPredict"),header=FALSE)
@@ -310,22 +292,20 @@ predict.ccsvm <- function(X,y,L,test.inxs,lambda,C) {
   r <- roc.curve
   return(list(roc.curve=roc.curve,labels=labels,predicted.labels=m,auc=kcauc))
 }
-
-#' blah blah blah
+#' Predict with cckOPLS
 #'
-#' @param X blah blah
-#' @param y blah blah
-#' @param L blah blah
-#' @param test.inxs blah blah
-#' @param lambda blah blah
-#' @param nox blah blah
-#' @return blah blah
+#' @param X - Input data matrix (NxD)
+#' @param y - Labels (Nx1)
+#' @param L - Side information kernel matrix
+#' @param test.inxs - test incides for CV
+#' @param lambda - optimized lambda value (cc)
+#' @param nox - optimized nox value (kOPLS)
+#' @return ROC curve, labels, predicted labels, and AUC
 #'
 #' @examples
 #' X <- read.csv(system.file("extdata", "X.csv", package="CCPredict"),header=FALSE)
 #'
 #' @export
-#'
 predict.cckopls <- function(X,y,L,test.inxs,lambda,nox) {
   # Make ytr
   values = sort(unique(y))
