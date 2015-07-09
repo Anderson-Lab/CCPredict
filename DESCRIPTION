@@ -10,7 +10,9 @@ Depends:
 	kernlab,
 	AUC,
 	modeest,
-	permute
+	permute,
+	doParallel,
+	foreach
 License: MIT + file LICENSE
 LazyData: true
 Encoding: UTF-8

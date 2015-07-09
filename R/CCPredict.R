@@ -2,9 +2,18 @@ library(kopls)
 library(kernlab)
 library(AUC)
 #library(modeest)
-#library(permute)
+library(permute)
 library(doParallel)
 library(foreach)
+
+# TODO:
+# 1. There are now much better and cleaner functions for running opls and svm.
+#    These should be used in the optimization routines
+# 2. Documentation
+# 3. Examples
+# 4. Cleaning code
+# 5. What else is missing from the package?
+
 
 #' blah blah blah
 #'
@@ -18,14 +27,6 @@ library(foreach)
 #'
 #' @examples
 #' X <- read.csv(system.file("extdata", "X.csv", package="CCPredict"),header=FALSE)
-#' X <- t(X)
-#' X = scale(X,center=T,scale=T) # Scale the X data so it has a mean of 0 and a stdev of 1. Pretty standard
-#' y <- read.csv(system.file("extdata", "y.csv", package="CCPredict"),header=FALSE)
-#' L <- read.csv(system.file("extdata", "L.csv", package="CCPredict"),header=FALSE)
-#' y <- as.matrix(y)
-#' y <- factor(y[,1])
-#' L <- as.matrix(L)
-#' optimize.cckopls(X,y,L,c(0:3),c(1e-8,1e-4,1e-2,1,1e+2,1e+4,1e+8),5)
 #'
 #' @export
 #'
@@ -76,7 +77,7 @@ optimize.cckopls <- function(X,ytr,L,noxRange,LambdaRange,kfold){ #optimize ccko
   for (i in 1:length(LambdaRange)){
     lambda <- LambdaRange[i]
     for (j in 1:kfold){
-      rescaled <- Rescaling(X,L,lambda)
+      rescaled <- rescaling(X,L,lambda)
       X.new <- rescaled[[1]]
       K.new <- rescaled[[2]]
       # n.list <- rescaled[[3]]
@@ -97,36 +98,7 @@ optimize.cckopls <- function(X,ytr,L,noxRange,LambdaRange,kfold){ #optimize ccko
   
   return(c(lambda,nox))
   
-  #   c = 1
-  #   iz = matrix(0,nrow=length(LambdaRange)*length(noxRange),ncol=2)
-  #   for (z in 1:length(noxRange)) {
-  #     for (i in 1:length(LambdaRange)){
-  #       lambda <- LambdaRange[i]
-  #       kcauc_total = 0
-  #       for (j in 1:kfold){
-  #         rescaled <- Rescaling(X,L,lambda)
-  #         X.new <- rescaled[[1]]
-  #         K.new <- rescaled[[2]]
-  #         test <- test.inxs[[j]]
-  #         modelOrg <- koplsModel(K.new[-test,-test],ytr[-test,],1,noxRange[z],'mc','mc')
-  #         modelOrgPred<-koplsPredict(K.new[test,-test],K.new[test,test],K.new[-test,-test],modelOrg,rescaleY=TRUE)
-  #         kcauc_total <- kcauc_total + auc(roc(modelOrgPred$Yhat[,2],factor(ytr[test,2])))
-  #         #print(auc(roc(modelOrgPred$Yhat[,2],factor(ytr[test,2]))))
-  #       }
-  #       kcauc_total = kcauc_total/kfold
-  #       kcauc[c] = kcauc_total
-  #       iz[c,1] = i
-  #       iz[c,2] = z
-  #       c = c + 1
-  #     }
-  #   }
-  #   
-  #   ix = which.max(kcauc)    
-  #   i = iz[ix,1]
-  #   z = iz[ix,2]
-  #   lambda <- LambdaRange[i]
-  #   nox <- noxRange[z]
-  
+
 } #end of cckopls opt
 
 #' blah blah blah
@@ -141,19 +113,11 @@ optimize.cckopls <- function(X,ytr,L,noxRange,LambdaRange,kfold){ #optimize ccko
 #'
 #' @examples
 #' X <- read.csv(system.file("extdata", "X.csv", package="CCPredict"),header=FALSE)
-#' X <- t(X)
-#' X = scale(X,center=T,scale=T) # Scale the X data so it has a mean of 0 and a stdev of 1. Pretty standard
-#' y <- read.csv(system.file("extdata", "y.csv", package="CCPredict"),header=FALSE)
-#' L <- read.csv(system.file("extdata", "L.csv", package="CCPredict"),header=FALSE)
-#' y <- as.matrix(y)
-#' y <- factor(y[,1])
-#' L <- as.matrix(L)
-#' optimize.ccSVM(X,y,L,c(2^-8,2^-4,2^-2,2^0,2^2,2^4,2^8),c(1e-8,1e-4,1e-2,1,1e+2,1e+4,1e+8))
 #'
 #' @export
 #'
-optimize.ccSVM <- function(X,ytr,L,CRange,LambdaRange,kfold=2){ #optimize ccSVM params
-  cl<-makeCluster(8)
+optimize.ccSVM <- function(X,ytr,L,CRange,LambdaRange,kfold=2,cluster.size=8){ #optimize ccSVM params
+  cl<-makeCluster(cluster.size)
   registerDoParallel(cl)
   
   #kcauc <- matrix(0,nrow=length(CRange),ncol=kfold) #optimize C
@@ -217,7 +181,7 @@ optimize.ccSVM <- function(X,ytr,L,CRange,LambdaRange,kfold=2){ #optimize ccSVM 
     for (j in 1:kfold){
       kcauc.values[j] = 0
       test <- test.inxs[[j]]
-      rescaled <- Rescaling(X,L,lam)
+      rescaled <- rescaling(X,L,lam)
       X.new <- rescaled[[1]]
       K.new <- rescaled[[2]]
       l <- rescaled[[3]]
@@ -241,6 +205,7 @@ optimize.ccSVM <- function(X,ytr,L,CRange,LambdaRange,kfold=2){ #optimize ccSVM 
   }
   print(lambda)
   print('finished')
+  stopCluster(cl)
   
   return(c(lambda,C))
   
@@ -260,7 +225,7 @@ optimize.ccSVM <- function(X,ytr,L,CRange,LambdaRange,kfold=2){ #optimize ccSVM 
 #' @return the rescaled matrices X and K
 #'
 #' @export
-Rescaling <- function(X,L,lambda){
+rescaling <- function(X,L,lambda){
   
   #instead of lambda, nox
   
@@ -286,4 +251,108 @@ Rescaling <- function(X,L,lambda){
   K.new = X.new%*%t(X.new)
   
   return (list(X.new,K.new,l))
+}
+
+#' blah blah blah
+#'
+#' @param n blah blah
+#' @param kfold blah blah
+#' @return blah blah
+#'
+#' @examples
+#' X <- read.csv(system.file("extdata", "X.csv", package="CCPredict"),header=FALSE)
+#'
+#' @export
+#'
+generate.test.inxs <- function(n,kfold) {
+  t.inxs <- shuffle(n)
+  size <- round(n/kfold)
+  test.inxs <- list()
+  for(i in 1:kfold){
+    start <- 1 + size*(i-1)
+    end <- min(nrow(X),size + size*(i-1))
+    test.inxs[[i]] <- t.inxs[start:end]
+  }
+  return(test.inxs)
+}
+
+#' blah blah blah
+#'
+#' @param X blah blah
+#' @param y blah blah
+#' @param L blah blah
+#' @param test.inxs blah blah
+#' @param lambda blah blah
+#' @param C blah blah
+#' @return blah blah
+#'
+#' @examples
+#' X <- read.csv(system.file("extdata", "X.csv", package="CCPredict"),header=FALSE)
+#'
+#' @export
+#'
+predict.ccsvm <- function(X,y,L,test.inxs,lambda,C) {
+  res = predict.helper(X,L,lambda)
+  X.new = res[[1]]
+  K.new = res[[2]]
+
+  ksvm.obj <- ksvm(K.new[-test.inxs,-test.inxs],y[-test.inxs],C=C,kernel='matrix')
+      
+  #Ktest.new1 = K.new[test.inxs,test.inxs]
+  Ktest.new2 <- as.kernelMatrix(crossprod(t(X.new[test.inxs,]),t(X.new[SVindex(ksvm.obj), ])))  
+  # TODO: Compare the above - looks like Ktest.new1 dim = 75,75 Ktest.new2 dim = 75, 42...using Ktest.new2
+  predictions <- predict(ksvm.obj,Ktest.new2,type='decision')
+  roc.curve <- roc(predictions,y[test.inxs])
+  m <- predictions
+  
+  kcauc <- auc(roc.curve)
+  labels <- y[test.inxs]
+  r <- roc.curve
+  return(list(roc.curve=roc.curve,labels=labels,predicted.labels=m,auc=kcauc))
+}
+
+#' blah blah blah
+#'
+#' @param X blah blah
+#' @param y blah blah
+#' @param L blah blah
+#' @param test.inxs blah blah
+#' @param lambda blah blah
+#' @param nox blah blah
+#' @return blah blah
+#'
+#' @examples
+#' X <- read.csv(system.file("extdata", "X.csv", package="CCPredict"),header=FALSE)
+#'
+#' @export
+#'
+predict.cckopls <- function(X,y,L,test.inxs,lambda,nox) {
+  # Make ytr
+  values = sort(unique(y))
+  ytr <- matrix(0,nrow=length(y),length(values))
+  for (i in 1:length(values)) {
+    ytr[y==values[i],i] <- 1
+  }
+  #print(ytr)
+
+  res = predict.helper(X,L,lambda)
+  X.new = res[[1]]
+  K.new = res[[2]]
+
+  modelOrg <- koplsModel(K.new[-test.inxs,-test.inxs],ytr[-test.inxs,],length(values)-1,nox,'mc','mc')
+  modelOrgPred<-koplsPredict(K.new[test.inxs,-test.inxs],K.new[test.inxs,test.inxs],K.new[-test.inxs,-test.inxs],modelOrg,rescaleY=TRUE)
+  roc.curve <- roc(modelOrgPred$Yhat[,2],y[test.inxs])
+
+  m <- modelOrgPred$Yhat[,2]
+  kcauc <- auc(roc.curve)
+  labels <- y[test.inxs]
+  r <- roc.curve
+  return(list(roc.curve=roc.curve,labels=labels,predicted.labels=m,auc=kcauc))
+}
+
+predict.helper <- function(X,L,lambda) {
+  rescaled <- rescaling(X,L,lambda)
+  X.new <- rescaled[[1]]
+  K.new <- rescaled[[2]]
+  return(list(X.new,K.new))
 }

@@ -4,7 +4,7 @@
 \alias{optimize.ccSVM}
 \title{blah blah blah}
 \usage{
-optimize.ccSVM(X, ytr, L, CRange, LambdaRange, kfold = 2)
+optimize.ccSVM(X, ytr, L, CRange, LambdaRange, kfold = 2, cluster.size = 8)
 }
 \arguments{
 \item{X}{blah blah}
@@ -27,13 +27,5 @@ blah blah blah
 }
 \examples{
 X <- read.csv(system.file("extdata", "X.csv", package="CCPredict"),header=FALSE)
-X <- t(X)
-X = scale(X,center=T,scale=T) # Scale the X data so it has a mean of 0 and a stdev of 1. Pretty standard
-y <- read.csv(system.file("extdata", "y.csv", package="CCPredict"),header=FALSE)
-L <- read.csv(system.file("extdata", "L.csv", package="CCPredict"),header=FALSE)
-y <- as.matrix(y)
-y <- factor(y[,1])
-L <- as.matrix(L)
-optimize.ccSVM(X,y,L,c(2^-8,2^-4,2^-2,2^0,2^2,2^4,2^8),c(1e-8,1e-4,1e-2,1,1e+2,1e+4,1e+8))
 }
 
