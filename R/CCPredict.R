@@ -33,15 +33,21 @@ library(foreach)
 #'
 #' @export
 #'
-optimize.cckopls <- function(X,ytr,L,noxRange,LambdaRange,kfold){ #optimize cckopls/kopls params
+optimize.cckopls <- function(X,ytr,L,noxRange,LambdaRange,kfold=2,cluster.size=8){ #optimize cckopls/kopls params
+  cl<-makeCluster(cluster.size)
+  registerDoParallel(cl)
   
-  kcauc <- matrix(0, nrow=length(noxRange),ncol=kfold)
+  #kcauc <- matrix(0, nrow=length(noxRange),ncol=kfold)
   test.inxs <- generate.test.inxs(nrow(X),kfold)
 
+  #deleted CCPredict package from foreach for testing
+  kcauc = foreach(i=1:length(noxRange),.packages=c('kernlab','AUC'),.combine=rbind) %dopar% {
   print('optimizing nox...')
-  for (i in 1:length(noxRange)){
+  #for (i in 1:length(noxRange)){
     n <- noxRange[i]
+    kcauc.values <- c()
     for (j in 1:kfold){
+      kcauc.values <- 0
       test <- test.inxs[[j]]
       #     K <- as.kernelMatrix(crossprod(t(X[-test,])))
       K <- as.kernelMatrix(crossprod(t(X)))
@@ -52,23 +58,26 @@ optimize.cckopls <- function(X,ytr,L,noxRange,LambdaRange,kfold){ #optimize ccko
       #     modelOrg <- koplsModel(K,ytr,1,n,'mc','mc')
       modelOrgPred<-koplsPredict(K[test,-test],K[test,test],K[-test,-test],modelOrg,n,rescaleY=TRUE)
       #     modelOrgPred<-koplsPredict(K,K,K,modelOrg,rescaleY=TRUE)
-      kcauc[i,j] <- auc(roc(modelOrgPred$Yhat[,2],factor(ytr[test,2])))
+      labels <- factor(ytr[test,2])
+      kcauc.values[j] <- auc(roc(modelOrgPred$Yhat[,2],labels))
     }
   }
 
-  a <- max(rowMeans(kcauc))
-  b <- which(rowMeans(kcauc) == a)
+  b <- which.max(rowMeans(kcauc))
   
   nox <- noxRange[b[1]]
   print('finished')
   
-  kcauc <- matrix(0, nrow=length(LambdaRange),ncol=kfold)
+  #kcauc <- matrix(0, nrow=length(LambdaRange),ncol=kfold)
   test.inxs <- generate.test.inxs(nrow(X),kfold)
   
+  kcauc = foreach(i=1:length(LambdaRange),.packages=c('kernlab','AUC','CCPredict'),.combine=rbind) %dopar% {
   print('optimizing lambda...')
-  for (i in 1:length(LambdaRange)){
+  #for (i in 1:length(LambdaRange)){
     lambda <- LambdaRange[i]
+    kcauc.values <- c()
     for (j in 1:kfold){
+      kcauc.values[j] <- 0
       rescaled <- rescaling(X,L,lambda)
       X.new <- rescaled[[1]]
       K.new <- rescaled[[2]]
@@ -77,12 +86,13 @@ optimize.cckopls <- function(X,ytr,L,noxRange,LambdaRange,kfold){ #optimize ccko
       #modelCV <- koplsCV(K.new,ytr,1,10,nrcv=7,cvType='nfold',preProcK='mc',preProcY='mc',modelType='da')
       modelOrg <- koplsModel(K.new[-test,-test],ytr[-test,],1,nox,'mc','mc')
       modelOrgPred<-koplsPredict(K.new[test,-test],K.new[test,test],K.new[-test,-test],modelOrg,rescaleY=TRUE)
-      kcauc[i,j] <- auc(roc(modelOrgPred$Yhat[,2],y[test]))
+      labels <- y[test]
+      kcauc.values[j] <- auc(roc(modelOrgPred$Yhat[,2],labels))
     }
+  return (kcauc.values)
   }
   
-  a <- max(rowMeans(kcauc))
-  b <- which(rowMeans(kcauc) == a)
+  b <- which.max(rowMeans(kcauc))
   
   lambda <- LambdaRange[b[1]]
   
@@ -274,7 +284,7 @@ generate.test.inxs <- function(n,kfold) {
 #' @export
 #'
 predict.ccsvm <- function(X,y,L,test.inxs,lambda,C) {
-  res = predict.helper(X,L,lambda)
+  res = predict.helper(X,L,lambda) #isn't this the same as just using the rescaling function? or is it hiding that function?
   X.new = res[[1]]
   K.new = res[[2]]
 
@@ -336,3 +346,13 @@ predict.helper <- function(X,L,lambda) {
   K.new <- rescaled[[2]]
   return(list(X.new,K.new))
 }
+
+setwd('/Users/Dave/Git_ccSVM/ccSVM/data_sets')
+X <- read.csv('X.csv')
+y <- read.csv('y.csv')
+L <- read.csv('L.csv')
+
+noxRange <- 0:5
+LambdaRange <- c(1e-8,1e-4,1e-2,1,1e+2,1e+4,1e+8)
+
+optimize.cckopls(X,y,L,noxRange,lambdaRange)
