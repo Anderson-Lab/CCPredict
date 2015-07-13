@@ -41,13 +41,13 @@ optimize.cckopls <- function(X,ytr,L,noxRange,LambdaRange,kfold=2,cluster.size=8
   test.inxs <- generate.test.inxs(nrow(X),kfold)
 
   #deleted CCPredict package from foreach for testing
-  kcauc = foreach(i=1:length(noxRange),.packages=c('kernlab','AUC'),.combine=rbind) %dopar% {
   print('optimizing nox...')
+  kcauc <- foreach(i=1:length(noxRange),.packages=c('kernlab','AUC','kopls'),.combine=rbind) %do% {
   #for (i in 1:length(noxRange)){
     n <- noxRange[i]
     kcauc.values <- c()
     for (j in 1:kfold){
-      kcauc.values <- 0
+      kcauc.values[j] <- 0
       test <- test.inxs[[j]]
       #     K <- as.kernelMatrix(crossprod(t(X[-test,])))
       K <- as.kernelMatrix(crossprod(t(X)))
@@ -60,7 +60,9 @@ optimize.cckopls <- function(X,ytr,L,noxRange,LambdaRange,kfold=2,cluster.size=8
       #     modelOrgPred<-koplsPredict(K,K,K,modelOrg,rescaleY=TRUE)
       labels <- factor(ytr[test,2])
       kcauc.values[j] <- auc(roc(modelOrgPred$Yhat[,2],labels))
+      print(kcauc.values[j])
     }
+  return(kcauc.values)
   }
 
   b <- which.max(rowMeans(kcauc))
@@ -71,8 +73,8 @@ optimize.cckopls <- function(X,ytr,L,noxRange,LambdaRange,kfold=2,cluster.size=8
   #kcauc <- matrix(0, nrow=length(LambdaRange),ncol=kfold)
   test.inxs <- generate.test.inxs(nrow(X),kfold)
   
-  kcauc = foreach(i=1:length(LambdaRange),.packages=c('kernlab','AUC','CCPredict'),.combine=rbind) %dopar% {
   print('optimizing lambda...')
+  kcauc <- foreach(i=1:length(LambdaRange),.packages=c('kernlab','AUC'),.combine=rbind) %do% {
   #for (i in 1:length(LambdaRange)){
     lambda <- LambdaRange[i]
     kcauc.values <- c()
@@ -86,7 +88,7 @@ optimize.cckopls <- function(X,ytr,L,noxRange,LambdaRange,kfold=2,cluster.size=8
       #modelCV <- koplsCV(K.new,ytr,1,10,nrcv=7,cvType='nfold',preProcK='mc',preProcY='mc',modelType='da')
       modelOrg <- koplsModel(K.new[-test,-test],ytr[-test,],1,nox,'mc','mc')
       modelOrgPred<-koplsPredict(K.new[test,-test],K.new[test,test],K.new[-test,-test],modelOrg,rescaleY=TRUE)
-      labels <- y[test]
+      labels <- factor(ytr[test,2])
       kcauc.values[j] <- auc(roc(modelOrgPred$Yhat[,2],labels))
     }
   return (kcauc.values)
@@ -126,7 +128,7 @@ optimize.ccSVM <- function(X,ytr,L,CRange,LambdaRange,kfold=2,cluster.size=8){ #
   
   test.inxs <- generate.test.inxs(nrow(X),kfold)
   print('optimizing C...')
-  kcauc = foreach(i=1:length(CRange),.packages=c('kernlab','AUC','CCPredict'),.combine=rbind) %dopar% {
+  kcauc <- foreach(i=1:length(CRange),.packages=c('kernlab','AUC'),.combine=rbind) %dopar% {
   #for (i in 1:length(CRange)) {
     C <- CRange[i]
     #print(c)
@@ -137,25 +139,22 @@ optimize.ccSVM <- function(X,ytr,L,CRange,LambdaRange,kfold=2,cluster.size=8){ #
       test <- test.inxs[[j]]
       K <- as.kernelMatrix(crossprod(t(X[-test,])))
       tryCatch({
-        ksvm.obj <- ksvm(K,ytr[-test],C=C,kernel='matrix')#,prob.model=T)#,type='nu-svc')
+        ksvm.obj <- ksvm(K,y[-test],C=C,kernel='matrix')#,prob.model=T)#,type='nu-svc')
         Ktest <- as.kernelMatrix(crossprod(t(X[test,]),t(X[SVindex(ksvm.obj), ])))  
         predictions <- predict(ksvm.obj,Ktest,type='decision')
         #print(predictions)
-        labels = ytr[test]
-        kcauc.values[j] = auc(roc(predictions,labels))
+        labels = factor(y[test])
+        kcauc.values[j] <- auc(roc(predictions,labels))
       },
       error = function(e) {
-          # there were no samples predicted for one of the classes
       })
     }
     return(kcauc.values)
   }
-  print(kcauc)
   
   b <- which.max(rowMeans(kcauc))
   
   C <- CRange[b[1]]
-  print(C)
   print('finished')
   
   #kcauc <- matrix(0,nrow=length(LambdaRange),ncol=kfold) #optimize lambda
@@ -176,10 +175,10 @@ optimize.ccSVM <- function(X,ytr,L,CRange,LambdaRange,kfold=2,cluster.size=8){ #
       K.new <- rescaled[[2]]
       l <- rescaled[[3]]
       tryCatch({
-        ksvm.obj <- ksvm(K.new[-test,-test],ytr[-test],C=C,kernel='matrix')#,prob.model=T)#,type='nu-svc')
+        ksvm.obj <- ksvm(K.new[-test,-test],y[-test],C=C,kernel='matrix')#,prob.model=T)#,type='nu-svc')
         Ktest.new <- as.kernelMatrix(crossprod(t(X.new[test,]),t(X.new[SVindex(ksvm.obj), ])))  
         predictions <- predict(ksvm.obj,Ktest.new,type='decision')
-        labels <- ytr[test]
+        labels <- y[test]
         kcauc.values[j] = auc(roc(predictions,labels))
       },
       error = function(e) {
@@ -218,7 +217,6 @@ optimize.ccSVM <- function(X,ytr,L,CRange,LambdaRange,kfold=2,cluster.size=8){ #
 rescaling <- function(X,L,lambda){
   
   #instead of lambda, nox
-  
   n <- dim(X)[1]
   m <- dim(X)[2]
   
@@ -347,12 +345,12 @@ predict.helper <- function(X,L,lambda) {
   return(list(X.new,K.new))
 }
 
-setwd('/Users/Dave/Git_ccSVM/ccSVM/data_sets')
-X <- read.csv('X.csv')
-y <- read.csv('y.csv')
-L <- read.csv('L.csv')
-
-noxRange <- 0:5
-LambdaRange <- c(1e-8,1e-4,1e-2,1,1e+2,1e+4,1e+8)
-
-optimize.cckopls(X,y,L,noxRange,lambdaRange)
+# setwd('/Users/Dave/Git_ccSVM/ccSVM/data_sets')
+ X <- read.csv('X.csv')
+ y <- read.csv('y.csv')
+ L <- read.csv('L.csv')
+# 
+# noxRange <- 0:5
+# LambdaRange <- c(1e-8,1e-4,1e-2,1,1e+2,1e+4,1e+8)
+# 
+# optimize.cckopls(X,y,L,noxRange,lambdaRange)
