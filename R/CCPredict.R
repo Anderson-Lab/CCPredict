@@ -3,8 +3,8 @@ library(kernlab)
 library(AUC)
 #library(modeest)
 library(permute)
-library(doParallel)
 library(foreach)
+library(doParallel)
 
 # TODO:
 # 1. There are now much better and cleaner functions for running opls and svm.
@@ -21,7 +21,7 @@ library(foreach)
 #' the mean AUC (of the ROC) across all folds.
 #'
 #' @param X - Input data matrix (NxD)
-#' @param ytr - Labels (Nx1)
+#' @param ytr - Label matrix (Nx2)
 #' @param L - Side information kernel matrix
 #' @param noxRange - Range over which to optimize nox parameter (kopls)
 #' @param LambdaRange - Range over which to optimize lambda parameter (cc)
@@ -42,7 +42,7 @@ optimize.cckopls <- function(X,ytr,L,noxRange,LambdaRange,kfold=2,cluster.size=8
 
   #deleted CCPredict package from foreach for testing
   print('optimizing nox...')
-  kcauc <- foreach(i=1:length(noxRange),.packages=c('kernlab','AUC','kopls'),.combine=rbind) %do% {
+  kcauc <- foreach(i=1:length(noxRange),.packages=c('kernlab','AUC','kopls'),.combine=rbind) %dopar% {
   #for (i in 1:length(noxRange)){
     n <- noxRange[i]
     kcauc.values <- c()
@@ -60,7 +60,6 @@ optimize.cckopls <- function(X,ytr,L,noxRange,LambdaRange,kfold=2,cluster.size=8
       #     modelOrgPred<-koplsPredict(K,K,K,modelOrg,rescaleY=TRUE)
       labels <- factor(ytr[test,2])
       kcauc.values[j] <- auc(roc(modelOrgPred$Yhat[,2],labels))
-      print(kcauc.values[j])
     }
   return(kcauc.values)
   }
@@ -69,12 +68,12 @@ optimize.cckopls <- function(X,ytr,L,noxRange,LambdaRange,kfold=2,cluster.size=8
   
   nox <- noxRange[b[1]]
   print('finished')
-  
+
   #kcauc <- matrix(0, nrow=length(LambdaRange),ncol=kfold)
   test.inxs <- generate.test.inxs(nrow(X),kfold)
   
   print('optimizing lambda...')
-  kcauc <- foreach(i=1:length(LambdaRange),.packages=c('kernlab','AUC'),.combine=rbind) %do% {
+  kcauc <- foreach(i=1:length(LambdaRange),.packages=c('kernlab','AUC','CCPredict'),.combine=rbind) %dopar% {
   #for (i in 1:length(LambdaRange)){
     lambda <- LambdaRange[i]
     kcauc.values <- c()
@@ -108,7 +107,7 @@ optimize.cckopls <- function(X,ytr,L,noxRange,LambdaRange,kfold=2,cluster.size=8
 #' Optimize ccSVM parameters
 #' 
 #' @param X - Input data matrix (NxD)
-#' @param ytr - Labels (Nx1)
+#' @param ytr - Label vector (Nx1)
 #' @param L - Side information kernel matrix
 #' @param CRange - Range over which to optimize C parameter (svm)
 #' @param LambdaRange - Range over which to optimize lambda parameter (cc)
@@ -139,11 +138,11 @@ optimize.ccSVM <- function(X,ytr,L,CRange,LambdaRange,kfold=2,cluster.size=8){ #
       test <- test.inxs[[j]]
       K <- as.kernelMatrix(crossprod(t(X[-test,])))
       tryCatch({
-        ksvm.obj <- ksvm(K,y[-test],C=C,kernel='matrix')#,prob.model=T)#,type='nu-svc')
+        ksvm.obj <- ksvm(K,ytr[-test],C=C,kernel='matrix')#,prob.model=T)#,type='nu-svc')
         Ktest <- as.kernelMatrix(crossprod(t(X[test,]),t(X[SVindex(ksvm.obj), ])))  
         predictions <- predict(ksvm.obj,Ktest,type='decision')
         #print(predictions)
-        labels = factor(y[test])
+        labels = factor(ytr[test])
         kcauc.values[j] <- auc(roc(predictions,labels))
       },
       error = function(e) {
@@ -282,7 +281,7 @@ generate.test.inxs <- function(n,kfold) {
 #' @export
 #'
 predict.ccsvm <- function(X,y,L,test.inxs,lambda,C) {
-  res = predict.helper(X,L,lambda) #isn't this the same as just using the rescaling function? or is it hiding that function?
+  res = rescaling(X,L,lambda) #isn't this the same as just using the rescaling function? or is it hiding that function?
   X.new = res[[1]]
   K.new = res[[2]]
 
@@ -323,7 +322,7 @@ predict.cckopls <- function(X,y,L,test.inxs,lambda,nox) {
   }
   #print(ytr)
 
-  res = predict.helper(X,L,lambda)
+  res = rescaling(X,L,lambda)
   X.new = res[[1]]
   K.new = res[[2]]
 
@@ -346,9 +345,17 @@ predict.helper <- function(X,L,lambda) {
 }
 
 # setwd('/Users/Dave/Git_ccSVM/ccSVM/data_sets')
- X <- read.csv('X.csv')
- y <- read.csv('y.csv')
- L <- read.csv('L.csv')
+ X <- read.csv('X.csv',header=FALSE)
+ X <- t(X)
+ y <- read.csv('y.csv',header=FALSE)
+ y <- as.matrix(y)
+ y <- factor(y)
+ L <- read.csv('L.csv',header=FALSE)
+ L <- as.matrix(L)
+ 
+ ytr.tb <- matrix(0,nrow=length(y.tb),2)
+ ytr.tb[y.tb==0,1] <- 1
+ ytr.tb[y.tb==1,2] <- 1
 # 
 # noxRange <- 0:5
 # LambdaRange <- c(1e-8,1e-4,1e-2,1,1e+2,1e+4,1e+8)
