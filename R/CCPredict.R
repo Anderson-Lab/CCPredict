@@ -29,7 +29,7 @@ library(doParallel)
 #' @return lambda, nox - optimized lambda and nox values
 #'
 #' @examples
-#' #X <- read.csv(system.file("extdata", "X.csv", package="CCPredict"),header=FALSE)
+#' X <- read.csv(system.file("extdata", "X.csv", package="CCPredict"),header=FALSE)
 #'
 #' @export
 #'
@@ -42,7 +42,7 @@ optimize.cckopls <- function(X,ytr,L,noxRange,LambdaRange,kfold=2,cluster.size=8
 
   #deleted CCPredict package from foreach for testing
   print('optimizing nox...')
-  kcauc <- foreach(i=1:length(noxRange),.packages=c('kernlab','AUC','kopls'),.combine=rbind) %dopar% {
+  kcauc <- foreach(i=1:length(noxRange),.packages=c('kernlab','AUC','kopls','CCPredict'),.combine=rbind) %dopar% {
   #for (i in 1:length(noxRange)){
     n <- noxRange[i]
     kcauc.values <- c()
@@ -115,7 +115,7 @@ optimize.cckopls <- function(X,ytr,L,noxRange,LambdaRange,kfold=2,cluster.size=8
 #' @return lambda, C - the optimized lambda and C values
 #'
 #' @examples
-#' #X <- read.csv(system.file("extdata", "X.csv", package="CCPredict"),header=FALSE)
+#' X <- read.csv(system.file("extdata", "X.csv", package="CCPredict"),header=FALSE)
 #'
 #' @export
 #'
@@ -127,7 +127,7 @@ optimize.ccSVM <- function(X,ytr,L,CRange,LambdaRange,kfold=2,cluster.size=8){ #
   
   test.inxs <- generate.test.inxs(nrow(X),kfold)
   print('optimizing C...')
-  kcauc <- foreach(i=1:length(CRange),.packages=c('kernlab','AUC'),.combine=rbind) %dopar% {
+  kcauc <- foreach(i=1:length(CRange),.packages=c('kernlab','AUC','CCPredict'),.combine=rbind) %dopar% {
   #for (i in 1:length(CRange)) {
     C <- CRange[i]
     #print(c)
@@ -276,7 +276,7 @@ generate.test.inxs <- function(n,kfold) {
 #' @return ROC curve, labels, predicted labels, and AUC
 #'
 #' @examples
-#' #X <- read.csv(system.file("extdata", "X.csv", package="CCPredict"),header=FALSE)
+#' X <- read.csv(system.file("extdata", "X.csv", package="CCPredict"),header=FALSE)
 #'
 #' @export
 #'
@@ -310,7 +310,7 @@ predict.ccsvm <- function(X,y,L,test.inxs,lambda,C) {
 #' @return ROC curve, labels, predicted labels, and AUC
 #'
 #' @examples
-#' #X <- read.csv(system.file("extdata", "X.csv", package="CCPredict"),header=FALSE)
+#' X <- read.csv(system.file("extdata", "X.csv", package="CCPredict"),header=FALSE)
 #'
 #' @export
 predict.cckopls <- function(X,y,L,test.inxs,lambda,nox) {
