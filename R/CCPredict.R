@@ -40,9 +40,8 @@ optimize.cckopls <- function(X,ytr,L,noxRange,LambdaRange,kfold=2,cluster.size=8
   #kcauc <- matrix(0, nrow=length(noxRange),ncol=kfold)
   test.inxs <- generate.test.inxs(nrow(X),kfold)
 
-  #deleted CCPredict package from foreach for testing
   print('optimizing nox...')
-  print(length(noxRange))
+  print('anything')
   kcauc <- foreach(i=1:length(noxRange),.packages=c('kernlab','AUC','kopls','CCPredict'),.combine=rbind) %dopar% {
   #for (i in 1:length(noxRange)){
     n <- noxRange[i]
