@@ -36,8 +36,9 @@ library(doParallel)
 optimize.cckopls <- function(X,ytr,L,noxRange,LambdaRange,kfold=2,cluster.size=8){ #optimize cckopls/kopls params
   cl<-makeCluster(cluster.size)
   registerDoParallel(cl)
+
   
-  #kcauc <- matrix(0, nrow=length(noxRange),ncol=kfold)
+  kcauc <- matrix(0, nrow=length(noxRange),ncol=kfold)
   test.inxs <- generate.test.inxs(nrow(X),kfold)
 
   print('optimizing nox...')
@@ -47,7 +48,7 @@ optimize.cckopls <- function(X,ytr,L,noxRange,LambdaRange,kfold=2,cluster.size=8
     kcauc.values <- c()
     for (j in 1:kfold){
       kcauc.values[j] <- 0
-      test <- test.inxs[[j]]
+      test <- na.omit(test.inxs[[j]])
       #     K <- as.kernelMatrix(crossprod(t(X[-test,])))
       K <- as.kernelMatrix(crossprod(t(X)))
       #modelCV <- koplsCV(K,ytr,1,10,nrcv=7,cvType='nfold',preProcK='mc',preProcY='mc',modelType='da')
@@ -59,6 +60,7 @@ optimize.cckopls <- function(X,ytr,L,noxRange,LambdaRange,kfold=2,cluster.size=8
       #     modelOrgPred<-koplsPredict(K,K,K,modelOrg,rescaleY=TRUE)
       labels <- factor(ytr[test,2])
       kcauc.values[j] <- auc(roc(modelOrgPred$Yhat[,2],labels))
+      #kcauc[i,j] <- auc(roc(modelOrgPred$Yhat[,2],labels))    
     }
   return(kcauc.values)
   }
@@ -82,7 +84,7 @@ optimize.cckopls <- function(X,ytr,L,noxRange,LambdaRange,kfold=2,cluster.size=8
       X.new <- rescaled[[1]]
       K.new <- rescaled[[2]]
       # n.list <- rescaled[[3]]
-      test <- test.inxs[[j]]
+      test <- na.omit(test.inxs[[j]])
       #modelCV <- koplsCV(K.new,ytr,1,10,nrcv=7,cvType='nfold',preProcK='mc',preProcY='mc',modelType='da')
       modelOrg <- koplsModel(K.new[-test,-test],ytr[-test,],1,nox,'mc','mc')
       modelOrgPred<-koplsPredict(K.new[test,-test],K.new[test,test],K.new[-test,-test],modelOrg,rescaleY=TRUE)
@@ -134,7 +136,7 @@ optimize.ccSVM <- function(X,ytr,L,CRange,LambdaRange,kfold=2,cluster.size=8){ #
     kcauc.values = c()
     for (j in 1:kfold){
       kcauc.values[j] = 0
-      test <- test.inxs[[j]]
+      test <- na.omit(test.inxs[[j]])
       K <- as.kernelMatrix(crossprod(t(X[-test,])))
       tryCatch({
         ksvm.obj <- ksvm(K,ytr[-test],C=C,kernel='matrix')#,prob.model=T)#,type='nu-svc')
@@ -167,7 +169,7 @@ optimize.ccSVM <- function(X,ytr,L,CRange,LambdaRange,kfold=2,cluster.size=8){ #
     kcauc.values = c()
     for (j in 1:kfold){
       kcauc.values[j] = 0
-      test <- test.inxs[[j]]
+      test <- na.omit(test.inxs[[j]])
       rescaled <- rescaling(X,L,lam)
       X.new <- rescaled[[1]]
       K.new <- rescaled[[2]]
