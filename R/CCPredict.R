@@ -344,20 +344,4 @@ predict.helper <- function(X,L,lambda) {
   return(list(X.new,K.new))
 }
 
-# setwd('/Users/Dave/Git_ccSVM/ccSVM/data_sets')
- X <- read.csv('X.csv',header=FALSE)
- X <- t(X)
- y <- read.csv('y.csv',header=FALSE)
- y <- as.matrix(y)
- y <- factor(y)
- L <- read.csv('L.csv',header=FALSE)
- L <- as.matrix(L)
- 
- ytr.tb <- matrix(0,nrow=length(y.tb),2)
- ytr.tb[y.tb==0,1] <- 1
- ytr.tb[y.tb==1,2] <- 1
-# 
-# noxRange <- 0:5
-# LambdaRange <- c(1e-8,1e-4,1e-2,1,1e+2,1e+4,1e+8)
-# 
-# optimize.cckopls(X,y,L,noxRange,lambdaRange)
+
