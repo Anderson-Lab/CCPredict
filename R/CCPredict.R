@@ -29,7 +29,7 @@ library(doParallel)
 #' @return lambda, nox - optimized lambda and nox values
 #'
 #' @examples
-#' X <- read.csv(system.file("extdata", "X.csv", package="CCPredict"),header=FALSE)
+#' #X <- read.csv(system.file("extdata", "X.csv", package="CCPredict"),header=FALSE)
 #'
 #' @export
 #'
@@ -115,7 +115,7 @@ optimize.cckopls <- function(X,ytr,L,noxRange,LambdaRange,kfold=2,cluster.size=8
 #' @return lambda, C - the optimized lambda and C values
 #'
 #' @examples
-#' X <- read.csv(system.file("extdata", "X.csv", package="CCPredict"),header=FALSE)
+#' #X <- read.csv(system.file("extdata", "X.csv", package="CCPredict"),header=FALSE)
 #'
 #' @export
 #'
@@ -276,7 +276,7 @@ generate.test.inxs <- function(n,kfold) {
 #' @return ROC curve, labels, predicted labels, and AUC
 #'
 #' @examples
-#' X <- read.csv(system.file("extdata", "X.csv", package="CCPredict"),header=FALSE)
+#' #X <- read.csv(system.file("extdata", "X.csv", package="CCPredict"),header=FALSE)
 #'
 #' @export
 #'
@@ -310,7 +310,7 @@ predict.ccsvm <- function(X,y,L,test.inxs,lambda,C) {
 #' @return ROC curve, labels, predicted labels, and AUC
 #'
 #' @examples
-#' X <- read.csv(system.file("extdata", "X.csv", package="CCPredict"),header=FALSE)
+#' #X <- read.csv(system.file("extdata", "X.csv", package="CCPredict"),header=FALSE)
 #'
 #' @export
 predict.cckopls <- function(X,y,L,test.inxs,lambda,nox) {
