@@ -42,62 +42,76 @@ optimize.cckopls <- function(X,ytr,L,noxRange,LambdaRange,kfold=2,cluster.size=8
   test.inxs <- generate.test.inxs(nrow(X),kfold)
 
   print('optimizing nox...')
-  kcauc <- foreach(i=1:length(noxRange),.packages=c('kernlab','AUC','kopls','CCPredict'),.combine=rbind) %dopar% {
-  #for (i in 1:length(noxRange)){
-    n <- noxRange[i]
-    kcauc.values <- c()
-    for (j in 1:kfold){
-      kcauc.values[j] <- 0
-      test <- na.omit(test.inxs[[j]])
-      #     K <- as.kernelMatrix(crossprod(t(X[-test,])))
-      K <- as.kernelMatrix(crossprod(t(X)))
-      #modelCV <- koplsCV(K,ytr,1,10,nrcv=7,cvType='nfold',preProcK='mc',preProcY='mc',modelType='da')
-      #first is for microarray, second for tb, something about y being different, need to go back and fix
-      modelOrg <- koplsModel(K[-test,-test],ytr[-test,],1,n,preProcK='mc',preProcY='mc')
-      #modelOrg <- koplsModel(K[-test,-test],ytr[-test],1,n,preProcK='mc',preProcY='mc')
-      #     modelOrg <- koplsModel(K,ytr,1,n,'mc','mc')
-      modelOrgPred<-koplsPredict(K[test,-test],K[test,test],K[-test,-test],modelOrg,n,rescaleY=TRUE)
-      #     modelOrgPred<-koplsPredict(K,K,K,modelOrg,rescaleY=TRUE)
-      labels <- factor(ytr[test,2])
-      kcauc.values[j] <- auc(roc(modelOrgPred$Yhat[,2],labels))
-      #kcauc[i,j] <- auc(roc(modelOrgPred$Yhat[,2],labels))    
+  if(length(noxRange) > 1){
+    kcauc <- foreach(i=1:length(noxRange),.packages=c('kernlab','AUC','kopls','CCPredict'),.combine=rbind) %dopar% {
+      #for (i in 1:length(noxRange)){
+      n <- noxRange[i]
+      kcauc.values <- c()
+      for (j in 1:kfold){
+        kcauc.values[j] <- 0
+        test <- na.omit(test.inxs[[j]])
+        #     K <- as.kernelMatrix(crossprod(t(X[-test,])))
+        K <- as.kernelMatrix(crossprod(t(X)))
+        #modelCV <- koplsCV(K,ytr,1,10,nrcv=7,cvType='nfold',preProcK='mc',preProcY='mc',modelType='da')
+        #first is for microarray, second for tb, something about y being different, need to go back and fix
+        modelOrg <- koplsModel(K[-test,-test],ytr[-test,],1,n,preProcK='no',preProcY='mc')
+        #modelOrg <- koplsModel(K[-test,-test],ytr[-test],1,n,preProcK='mc',preProcY='mc')
+        #     modelOrg <- koplsModel(K,ytr,1,n,'mc','mc')
+        modelOrgPred<-koplsPredict(K[test,-test],K[test,test],K[-test,-test],modelOrg,n,rescaleY=TRUE)
+        #     modelOrgPred<-koplsPredict(K,K,K,modelOrg,rescaleY=TRUE)
+        labels <- factor(ytr[test,2])
+        kcauc.values[j] <- auc(roc(modelOrgPred$Yhat[,2],labels))
+        #kcauc[i,j] <- auc(roc(modelOrgPred$Yhat[,2],labels))    
+      }
+      return(kcauc.values)
     }
-  return(kcauc.values)
+    
+    b <- which.max(rowMeans(kcauc))
+    
+    nox <- noxRange[b[1]]
+    
+  } else{
+    nox <- 0
   }
-
-  b <- which.max(rowMeans(kcauc))
   
-  nox <- noxRange[b[1]]
   print('finished')
 
   #kcauc <- matrix(0, nrow=length(LambdaRange),ncol=kfold)
   test.inxs <- generate.test.inxs(nrow(X),kfold)
   
   print('optimizing lambda...')
-  kcauc <- foreach(i=1:length(LambdaRange),.packages=c('kernlab','AUC','CCPredict'),.combine=rbind) %dopar% {
-  #for (i in 1:length(LambdaRange)){
-    lambda <- LambdaRange[i]
-    kcauc.values <- c()
-    for (j in 1:kfold){
-      kcauc.values[j] <- 0
-      rescaled <- rescaling(X,L,lambda)
-      X.new <- rescaled[[1]]
-      K.new <- rescaled[[2]]
-      # n.list <- rescaled[[3]]
-      test <- na.omit(test.inxs[[j]])
-      #modelCV <- koplsCV(K.new,ytr,1,10,nrcv=7,cvType='nfold',preProcK='mc',preProcY='mc',modelType='da')
-      modelOrg <- koplsModel(K.new[-test,-test],ytr[-test,],1,nox,'mc','mc')
-      modelOrgPred<-koplsPredict(K.new[test,-test],K.new[test,test],K.new[-test,-test],modelOrg,rescaleY=TRUE)
-      labels <- factor(ytr[test,2])
-      kcauc.values[j] <- auc(roc(modelOrgPred$Yhat[,2],labels))
+  
+  if(length(LambdaRange) > 1){
+    kcauc <- foreach(i=1:length(LambdaRange),.packages=c('kernlab','AUC','CCPredict'),.combine=rbind) %dopar% {
+      #for (i in 1:length(LambdaRange)){
+      lambda <- LambdaRange[i]
+      kcauc.values <- c()
+      for (j in 1:kfold){
+        kcauc.values[j] <- 0
+        rescaled <- rescaling(X,L,lambda)
+        X.new <- rescaled[[1]]
+        K.new <- rescaled[[2]]
+        # n.list <- rescaled[[3]]
+        test <- na.omit(test.inxs[[j]])
+        #modelCV <- koplsCV(K.new,ytr,1,10,nrcv=7,cvType='nfold',preProcK='mc',preProcY='mc',modelType='da')
+        modelOrg <- koplsModel(K.new[-test,-test],ytr[-test,],1,nox,'no','mc')
+        modelOrgPred<-koplsPredict(K.new[test,-test],K.new[test,test],K.new[-test,-test],modelOrg,rescaleY=TRUE)
+        labels <- factor(ytr[test,2])
+        kcauc.values[j] <- auc(roc(modelOrgPred$Yhat[,2],labels))
+      }
+      return (kcauc.values)
     }
-  return (kcauc.values)
+    
+    b <- which.max(rowMeans(kcauc))
+    
+    lambda <- LambdaRange[b[1]]
+
+  } else{
+    
+    lambda <- 0
+  
   }
-  
-  b <- which.max(rowMeans(kcauc))
-  
-  lambda <- LambdaRange[b[1]]
-  
+    
   print('finished')
   
   return(c(lambda,nox))
@@ -327,7 +341,7 @@ predict.cckopls <- function(X,y,L,test.inxs,lambda,nox) {
   X.new = res[[1]]
   K.new = res[[2]]
 
-  modelOrg <- koplsModel(K.new[-test.inxs,-test.inxs],ytr[-test.inxs,],length(values)-1,nox,'mc','mc')
+  modelOrg <- koplsModel(K.new[-test.inxs,-test.inxs],ytr[-test.inxs,],length(values)-1,nox,'no','mc')
   modelOrgPred<-koplsPredict(K.new[test.inxs,-test.inxs],K.new[test.inxs,test.inxs],K.new[-test.inxs,-test.inxs],modelOrg,rescaleY=TRUE)
   roc.curve <- roc(modelOrgPred$Yhat[,2],y[test.inxs])
 
@@ -336,13 +350,6 @@ predict.cckopls <- function(X,y,L,test.inxs,lambda,nox) {
   labels <- y[test.inxs]
   r <- roc.curve
   return(list(roc.curve=roc.curve,labels=labels,predicted.labels=m,auc=kcauc))
-}
-
-predict.helper <- function(X,L,lambda) {
-  rescaled <- rescaling(X,L,lambda)
-  X.new <- rescaled[[1]]
-  K.new <- rescaled[[2]]
-  return(list(X.new,K.new))
 }
 
 
