@@ -112,6 +112,7 @@ optimize.cckopls <- function(X,ytr,L,noxRange,LambdaRange,kfold=2,cluster.size){
   
   }
     
+  stopCluster(cl)
   print('finished')
   
   return(c(lambda,nox))
