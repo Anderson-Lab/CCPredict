@@ -33,7 +33,7 @@ library(doParallel)
 #'
 #' @export
 #'
-optimize.cckopls <- function(X,ytr,L,noxRange,LambdaRange,kfold=2,cluster.size=8){ #optimize cckopls/kopls params
+optimize.cckopls <- function(X,ytr,L,noxRange,LambdaRange,kfold=2,cluster.size){ #optimize cckopls/kopls params
   cl<-makeCluster(cluster.size)
   registerDoParallel(cl)
 
@@ -134,7 +134,7 @@ optimize.cckopls <- function(X,ytr,L,noxRange,LambdaRange,kfold=2,cluster.size=8
 #'
 #' @export
 #'
-optimize.ccSVM <- function(X,ytr,L,CRange,LambdaRange,kfold=2,cluster.size=8){ #optimize ccSVM params
+optimize.ccSVM <- function(X,ytr,L,CRange,LambdaRange,kfold=2,cluster.size){ #optimize ccSVM params
   cl<-makeCluster(cluster.size)
   registerDoParallel(cl)
   
