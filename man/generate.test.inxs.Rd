@@ -2,7 +2,7 @@
 % Please edit documentation in R/CCPredict.R
 \name{generate.test.inxs}
 \alias{generate.test.inxs}
-\title{blah blah blah}
+\title{generate.test.inxs}
 \usage{
 generate.test.inxs(n, kfold)
 }
